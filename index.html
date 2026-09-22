@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer"><meta name="robots" content="noindex,nofollow">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; media-src 'self' blob:; connect-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>Form Lab · Coaching evaluation</title><link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header><a href="./" class="brand">Form Lab <span>/ evaluation</span></a><span class="quiet">Development workspace</span></header>
+  <main id="app">
+    <section class="unlock"><p class="eyebrow">Coaching evaluation</p><h1>See what the coach gets right.</h1>
+    <p>This workspace contains encrypted reviews and video clips. Open your private review link, or paste its key below.</p>
+    <form id="unlock"><label for="key">Review key or review link</label><input id="key" type="password" autocomplete="off" required><button type="submit">Open reviews</button></form>
+    <p id="status" role="status"></p><p class="quiet">Anyone with the review link can open the data. The key is used in your browser and is not sent to GitHub.</p></section>
+  </main>
+  <footer>Form Lab · Experimental coaching evaluation</footer>
+  <script type="module" src="app.js"></script>
+</body></html>
