@@ -44,6 +44,19 @@ const escapeHTML = (s) =>
 const pretty = (s) => s.replaceAll('_', ' ');
 const badge = (s) =>
   `<span class="badge ${escapeHTML(s)}">${escapeHTML(labels[s] ?? pretty(s))}</span>`;
+const checkNames = {
+  stance_control: 'Foot placement / stance',
+  knee_path: 'Knee movement (inward / outward)',
+  rear_heel_control: 'Rear heel during the rep',
+};
+const checkHelp = {
+  stance_control:
+    'Review where the feet are placed. Feet on one line belongs here; it can support a setup suggestion without proving a balance problem.',
+  knee_path:
+    'Review inward or outward knee movement relative to the foot, usually from a front or oblique view. Feet on one line is a stance check. Knees moving forward past toes alone is not an automatic fault.',
+  rear_heel_control:
+    'For this stationary split-squat variation, review whether the back heel stays raised during the rise as well as the descent.',
+};
 const getRun = () => data.runs[runIndex];
 const taskOf = (run) =>
   run.task ?? { id: 'lunges', name: 'Lunges', title: 'Lunge evaluation' };
@@ -249,6 +262,7 @@ async function showCase(id) {
     .join('')}
   ${c.grade.unsupportedClaims.length ? `<article class="check"><h3>Additional claim to fix</h3>${c.grade.unsupportedClaims.map((s) => `<p>${escapeHTML(s)}</p>`).join('')}</article>` : ''}
   ${(c.grade.unreviewedConcerns ?? []).length ? `<article class="check"><h3>Additional concerns need review</h3><p>These claims have no adjudicated reference yet. They cannot silently receive a passing grade.</p>${c.grade.unreviewedConcerns.map((q) => `<p><strong>${escapeHTML(pretty(q.id))}:</strong> ${escapeHTML(q.observation)}</p><p>${escapeHTML(q.suggestion ?? '')}</p>`).join('')}</article>` : ''}
+  ${(r.reviewNotes ?? []).map((n) => `<article class="check"><h3>${escapeHTML(n.title)}</h3><p class="label">Your comment</p><p>${escapeHTML(n.text)}</p><p class="reason">${escapeHTML(n.resolution)}</p></article>`).join('')}
   <section id="review-editor" class="check review-editor"></section>
   <details class="raw"><summary>Full model response</summary><pre>${escapeHTML(JSON.stringify(c.response.proposal ?? c.response.checks, null, 2))}</pre></details>
   <details class="raw"><summary>Reference, constraints & provenance</summary><pre>${escapeHTML(JSON.stringify(r, null, 2))}</pre></details>
@@ -329,7 +343,7 @@ function mountReviewEditor(c) {
   ];
   const preferred = c.grade.unreviewedConcerns?.[0]?.id ?? r.expectations[0].id;
   const editor = document.querySelector('#review-editor');
-  editor.innerHTML = `<h2>Review the expected label</h2><p class="scope">Record what you see in the clip. This saves a proposed reference change; it does not mark the model correct or change the published score.</p><form id="review-form"><label for="review-check">Instruction or claim</label><select id="review-check">${criteria.map((id) => `<option value="${escapeHTML(id)}">${escapeHTML(pretty(id))}</option>`).join('')}</select><p id="review-current" class="scope"></p><label for="review-outcome">What should the expected label be?</label><select id="review-outcome" required><option value="">Choose a label…</option>${Object.entries(
+  editor.innerHTML = `<h2>Review the expected label</h2><p class="scope">Record what you see in the clip. This saves a proposed reference change; it does not mark the model correct or change the published score.</p><form id="review-form"><label for="review-check">Instruction or claim</label><select id="review-check">${criteria.map((id) => `<option value="${escapeHTML(id)}">${escapeHTML(checkNames[id] ?? pretty(id))}</option>`).join('')}</select><p id="review-check-help" class="scope"></p><p id="review-current" class="scope"></p><label for="review-outcome">What should the expected label be?</label><select id="review-outcome" required><option value="">Choose a label…</option>${Object.entries(
     outcomes,
   )
     .map(([id, label]) => `<option value="${id}">${escapeHTML(label)}</option>`)
@@ -342,6 +356,9 @@ function mountReviewEditor(c) {
     const id = select.value,
       existing = r.expectations.find((q) => q.id === id),
       saved = drafts.find(context, id);
+    document.querySelector('#review-check-help').textContent =
+      checkHelp[id] ??
+      'Review only this selected instruction. Other positives or concerns are separate checks.';
     document.querySelector('#review-current').textContent = existing
       ? `Published reference: ${outcomes[existing.expected] ?? existing.expected}. ${existing.feedback}`
       : 'This model claim does not have an adjudicated reference yet.';
