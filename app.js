@@ -79,7 +79,7 @@ function visibleCases() {
 }
 
 async function decrypt(path) {
-  const r = await fetch(path);
+  const r = await fetch(path, { cache: 'no-cache' });
   if (!r.ok) throw Error('Review file unavailable.');
   const b = new Uint8Array(await r.arrayBuffer());
   return crypto.subtle.decrypt(
