@@ -520,3 +520,52 @@ button:disabled {
     width: 100%;
   }
 }
+.task-tabs {
+  display: flex;
+  gap: 10px;
+  margin: 20px 0;
+}
+.task-tabs button[aria-pressed='true'] {
+  background: #243b33;
+  color: white;
+}
+.score {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  padding: 22px 26px;
+  background: #edf3ef;
+  border-radius: 12px;
+  margin: 20px 0;
+}
+.score > strong {
+  font-size: 42px;
+  font-weight: 600;
+}
+.score p {
+  margin: 5px 0 0;
+  max-width: 750px;
+  font-size: 14px;
+  color: #526159;
+}
+.guide {
+  margin: 18px 0;
+}
+.guide li {
+  margin: 8px 0;
+}
+.detail-top > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+@media (max-width: 640px) {
+  .score {
+    padding: 18px;
+    gap: 16px;
+  }
+  .score > strong {
+    font-size: 32px;
+  }
+}

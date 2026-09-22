@@ -116,7 +116,11 @@ export class ReviewDrafts {
     return {
       version: 1,
       kind: 'form-lab-reference-decisions',
-      exerciseFamily: 'lunges',
+      exerciseFamily:
+        [...new Set(this.entries.map((e) => e.exerciseFamily ?? 'lunges'))]
+          .length === 1
+          ? (this.entries[0]?.exerciseFamily ?? 'lunges')
+          : 'mixed',
       exportedAt: new Date().toISOString(),
       status: 'proposed_reference_changes',
       decisions: this.entries,

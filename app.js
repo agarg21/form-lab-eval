@@ -2,7 +2,8 @@ import {
   ReviewDrafts,
   outcomes,
   validateDecision,
-} from './review-drafts.js?v=1';
+} from './review-drafts.js?v=2';
+import { guides } from './exercise-guides.js?v=1';
 const app = document.querySelector('#app');
 let data,
   key,
@@ -44,6 +45,26 @@ const pretty = (s) => s.replaceAll('_', ' ');
 const badge = (s) =>
   `<span class="badge ${escapeHTML(s)}">${escapeHTML(labels[s] ?? pretty(s))}</span>`;
 const getRun = () => data.runs[runIndex];
+const taskOf = (run) =>
+  run.task ?? { id: 'lunges', name: 'Lunges', title: 'Lunge evaluation' };
+function guideHTML() {
+  const guide = guides[taskOf(getRun()).id];
+  if (!guide) return '';
+  return `<details class="raw guide"><summary>${escapeHTML(guide.title)} · quick review guide</summary><ul>${guide.items.map((t) => `<li>${escapeHTML(t)}</li>`).join('')}</ul><p>${escapeHTML(guide.note)}</p><p><strong>Review:</strong> Watch the whole clip, then the flagged moment. Judge the movement, not the source’s red/green graphics. Choose “Cannot assess” if the needed body part is hidden, or “Unsure” if you cannot settle the label.</p><p class="scope">Practical project checklist informed by ${guide.sources.map(([title, url]) => `<a href="${url}" target="_blank" rel="noopener noreferrer">${escapeHTML(title)}</a>`).join(' · ')}. These short cues are not a universal technique standard.</p></details>`;
+}
+function visibleCases() {
+  return getRun().results.filter(
+    (c) =>
+      (filter === 'all' ||
+        (filter === 'attention'
+          ? c.grade.verdict !== 'matched'
+          : c.grade.verdict === filter)) &&
+      `${c.id} ${c.reference.title} ${c.reference.view} ${c.reference.expectations.map((e) => e.feedback).join(' ')}`
+        .toLowerCase()
+        .includes(query.toLowerCase()),
+  );
+}
+
 async function decrypt(path) {
   const r = await fetch(path);
   if (!r.ok) throw Error('Review file unavailable.');
@@ -104,8 +125,11 @@ function showOverview() {
   cleanup();
   const run = getRun(),
     s = run.summary;
-  app.innerHTML = `<section class="intro"><p class="eyebrow">Lunges & stationary split squats / ${run.results.length} clips</p><h1>Lunge evaluation</h1><p>Does the coach’s feedback match our agreed lunge instructions? These data and results cover lunges and stationary split squats only. Open a clip to see the evidence and why we graded it that way.</p></section>
-  <div class="toolbar"><div><label for="run">Lunge evaluation run</label><select id="run">${data.runs.map((r, i) => `<option value="${i}" ${i === runIndex ? 'selected' : ''}>${escapeHTML(r.label)}</option>`).join('')}</select></div><div><label for="filter">Results</label><select id="filter"><option value="all">All clips</option><option value="attention">Needs attention</option>${Object.keys(
+  const task = taskOf(run),
+    score = s.score ?? { percent: null, graded: 0, pending: s.total };
+  app.innerHTML = `<section class="intro"><p class="eyebrow">${escapeHTML(task.name)} / ${run.results.length} clips</p><h1>${escapeHTML(task.title)}</h1><p>Does the coach explain the same positives and corrections as our reference? Review a clip, check the evidence, and save your label.</p></section>
+  <nav class="task-tabs" aria-label="Exercise">${[...new Map(data.runs.map((r, i) => [taskOf(r).id, { ...taskOf(r), index: data.runs.findIndex((x) => taskOf(x).id === taskOf(r).id) }])).values()].map((t) => `<button data-task="${t.index}" aria-pressed="${task.id === t.id}">${escapeHTML(t.name)}</button>`).join('')}</nav>
+  <div class="toolbar"><div><label for="run">Evaluation run</label><select id="run">${data.runs.map((r, i) => `<option value="${i}" ${i === runIndex ? 'selected' : ''}>${escapeHTML(r.label)}</option>`).join('')}</select></div><div><label for="filter">Results</label><select id="filter"><option value="all">All clips</option><option value="attention">Needs attention</option>${Object.keys(
     s,
   )
     .filter((k) => labels[k])
@@ -113,16 +137,29 @@ function showOverview() {
     .join(
       '',
     )}</select></div><div><label for="search">Find a clip</label><input id="search" type="search" placeholder="Stance, heel, torso…" value="${escapeHTML(query)}"></div></div>
+  <div class="score"><strong>${score.percent === null ? '—' : score.percent + '%'}</strong><div><b>Instruction match score</b><p>${s.matched} matched / ${score.graded} graded clips · ${score.pending} pending. Partial results count as non-matches; pending clips are excluded. This measures the pipeline, not the person’s form.</p></div></div>
+  ${guideHTML()}
   <div class="metrics"><div class="metric"><strong>${s.matched}</strong><span>Match selected instructions</span></div><div class="metric"><strong>${s.partial}</strong><span>Partial / overclaim</span></div><div class="metric"><strong>${s.mismatch + s.invalid}</strong><span>Missed / invalid</span></div><div class="metric"><strong>${s.needs_review}</strong><span>Need review</span></div><div class="metric"><strong>${s.not_run}</strong><span>Not run</span></div></div>
   <p class="summary-note">${escapeHTML(run.description)}<br>Run: ${escapeHTML(new Date(run.id).toLocaleString())}. ${escapeHTML(run.costNote ?? '')}</p>
-  <div class="notice">Development set, not validated accuracy. The references are assisted reviews; 10 clips still contain answer graphics. “Match” covers selected instructions, not a whole-video pass. ${escapeHTML(run.mode === 'fresh_inference' ? 'Changed responses need a new semantic audit before receiving a match.' : '')}</div>
+  <div class="notice">Development set, not validated accuracy. The references are assisted reviews; ${run.results.filter((c) => c.reference.answerOverlays).length} clips still contain answer graphics. “Match” covers selected instructions, not a whole-video pass. ${escapeHTML(run.mode === 'fresh_inference' ? 'Changed responses need a new semantic audit before receiving a match.' : '')}</div>
   <div class="review-export"><span id="draft-count">${drafts.entries.length} saved review decisions</span><button id="export-reviews" ${drafts.entries.length ? '' : 'disabled'}>Export reviews for me</button><p class="scope">Reviews save in this browser. Export and send me the file to update shared labels and rerun grading. Published scores stay unchanged until then.</p></div>
   <div class="section-title"><h2>Clips</h2><span id="count" class="quiet"></span></div><div class="list"><div class="list-head"><span>Clip / source</span><span>Coaching point</span><span>Camera</span><span>Result</span></div><div id="rows"></div></div>
-  <details class="raw"><summary>How grading works</summary><p>We check the selected instruction, not the creator’s overall good/bad label. A compatible output status alone never earns a semantic match. Saved semantic audits are bound to the exact response and reference hashes. Changed answers remain pending review. Unsupported claims can turn a match into a partial result. An uncertain reference is unscored.</p><p>${escapeHTML(run.referenceNote)}</p><p>The forward-lean example uses your adopted reference. The walking-lunge example is excluded because it is a different variation. Rep counts below are current rule outputs from cached pose detections, not manual counts or fresh pose inference.</p><p>These audits are assistant-assisted, not independent expert assessments. Additional unlabelled claims in the full response are not automatically verified.</p><pre>${escapeHTML(JSON.stringify(s.instructionCounts, null, 2))}</pre></details>
+  <details class="raw"><summary>How grading works</summary><p>We check the selected instruction, not the creator’s overall good/bad label. A compatible output status alone never earns a semantic match. Saved semantic audits are bound to the exact response and reference hashes. Changed answers remain pending review. Unsupported claims can turn a match into a partial result. An uncertain reference is unscored.</p><p>${escapeHTML(run.referenceNote)}</p><p>Sources can contribute several related clips; this is not an independent test set. Rep counts are rule outputs from saved pose detections, not manual counts. Historical runs keep their original model responses.</p><p>These audits are assistant-assisted, not independent expert assessments. Additional unlabelled claims in the full response are not automatically verified.</p><pre>${escapeHTML(JSON.stringify(s.instructionCounts, null, 2))}</pre></details>
   <details class="raw new-run"><summary>Run again / add a result</summary><p>Run locally in the app repository. No API key or model calls run in this website.</p><pre>npm run eval:coaching\n\n# Fresh video inference, up to $9 reserved for 15 requests:\nnpm run eval:coaching -- --infer --budget-usd 9\n\n# One clip:\nnpm run eval:coaching -- --infer --case panel-03 --budget-usd 0.6</pre><label for="import">Inspect an exported report.json locally</label><input type="file" id="import" accept="application/json"><p id="import-status" role="status"></p><p>No upload occurs. Importing results does not publish them.</p></details>`;
+  document.querySelectorAll('[data-task]').forEach(
+    (b) =>
+      (b.onclick = () => {
+        runIndex = Number(b.dataset.task);
+        filter = 'all';
+        query = '';
+        showOverview();
+      }),
+  );
   document.querySelector('#export-reviews').onclick = exportReviews;
   document.querySelector('#run').onchange = (e) => {
     runIndex = Number(e.target.value);
+    filter = 'all';
+    query = '';
     showOverview();
   };
   const f = document.querySelector('#filter');
@@ -147,11 +184,13 @@ function showOverview() {
         throw Error();
       r.label = `Imported · ${r.route} · ${r.id}`;
       r.results.forEach((c) => {
-        const known = data.runs[0].results.find(
-          (x) =>
-            x.id === c.id &&
-            x.reference.videoSHA256 === c.reference.videoSHA256,
-        );
+        const known = data.runs
+          .flatMap((run) => run.results)
+          .find(
+            (x) =>
+              x.id === c.id &&
+              x.reference.videoSHA256 === c.reference.videoSHA256,
+          );
         c.media = known?.media;
       });
       data.runs.push(r);
@@ -165,16 +204,7 @@ function showOverview() {
   renderRows();
 }
 function renderRows() {
-  const rows = getRun().results.filter(
-    (c) =>
-      (filter === 'all' ||
-        (filter === 'attention'
-          ? c.grade.verdict !== 'matched'
-          : c.grade.verdict === filter)) &&
-      `${c.id} ${c.reference.title} ${c.reference.view} ${c.reference.expectations.map((e) => e.feedback).join(' ')}`
-        .toLowerCase()
-        .includes(query.toLowerCase()),
-  );
+  const rows = visibleCases();
   document.querySelector('#count').textContent =
     `${rows.length} of ${getRun().results.length}`;
   document.querySelector('#rows').innerHTML = rows.length
@@ -197,7 +227,10 @@ async function showCase(id) {
   const token = generation,
     c = getRun().results.find((c) => c.id === id),
     r = c.reference;
-  app.innerHTML = `<div class="detail-top"><div><button id="back" class="back">← All clips</button> <button id="review-shortcut" class="back">Review labels</button></div>${badge(c.grade.verdict)}</div><p class="eyebrow">${escapeHTML(c.id)} / ${escapeHTML(getRun().label)}</p><h1>${escapeHTML(r.title)}</h1>
+  const ordered = visibleCases(),
+    position = ordered.findIndex((x) => x.id === id);
+  app.innerHTML = `<div class="detail-top"><div><button id="back" class="back">← All clips</button> <button id="review-shortcut" class="back">Review labels</button> <button id="previous" ${position <= 0 ? 'disabled' : ''}>← Previous</button> <span>${position + 1} / ${ordered.length}</span> <button id="next" ${position >= ordered.length - 1 ? 'disabled' : ''}>Next →</button></div>${badge(c.grade.verdict)}</div><p class="eyebrow">${escapeHTML(c.id)} / ${escapeHTML(getRun().label)}</p><h1>${escapeHTML(r.title)}</h1>
+  ${guideHTML()}
   <div class="detail-grid"><aside class="video-card"><video id="video" controls playsinline preload="metadata"></video><div id="video-status" role="status" class="video-info">Opening clip…</div><div class="video-info"><a href="${escapeHTML(r.sourceURL)}" target="_blank" rel="noopener noreferrer">Original source ↗</a><dl><dt>Camera</dt><dd>${escapeHTML(r.view)} view</dd><dt>Source interval</dt><dd>${r.sourceInterval.map((n) => Number(n).toFixed(2)).join('–')}s</dd><dt>Creator label</dt><dd>${escapeHTML(pretty(r.creatorLabel))}</dd><dt>Reference</dt><dd>${escapeHTML(pretty(r.referenceQuality))}</dd><dt>Current tracker</dt><dd>${c.pose.complete} full + ${c.pose.partial} partial candidates</dd></dl><p class="scope">${escapeHTML(r.referenceAuthority)} ${r.answerOverlays ? 'Answer graphics remain: this is not a blind test.' : ''}</p></div></aside><section>
   ${c.grade.checks
     .map(
@@ -223,6 +256,14 @@ async function showCase(id) {
   <p class="scope">${escapeHTML(c.grade.scope)} Timestamp validation checks structure; it does not verify the model’s visual interpretation.</p></section></div>`;
   document.querySelector('#back').onclick = () => {
     showOverview();
+    window.scrollTo(0, 0);
+  };
+  document.querySelector('#previous').onclick = () => {
+    void showCase(ordered[position - 1].id);
+    window.scrollTo(0, 0);
+  };
+  document.querySelector('#next').onclick = () => {
+    void showCase(ordered[position + 1].id);
     window.scrollTo(0, 0);
   };
   mountReviewEditor(c);
@@ -265,7 +306,7 @@ function exportReviews() {
   );
   const link = document.createElement('a');
   link.href = url;
-  link.download = `form-lab-lunge-reviews-${new Date().toISOString().slice(0, 10)}.json`;
+  link.download = `form-lab-exercise-reviews-${new Date().toISOString().slice(0, 10)}.json`;
   document.body.append(link);
   link.click();
   link.remove();
@@ -275,6 +316,7 @@ function mountReviewEditor(c) {
   const run = getRun(),
     r = c.reference;
   const context = {
+    exerciseFamily: taskOf(run).id,
     caseId: c.id,
     videoSHA256: r.videoSHA256,
     baseReferenceSHA256: run.referenceSHA256,
@@ -293,7 +335,7 @@ function mountReviewEditor(c) {
     .map(([id, label]) => `<option value="${id}">${escapeHTML(label)}</option>`)
     .join(
       '',
-    )}</select><label for="review-feedback">What should the coach say?</label><textarea id="review-feedback" required maxlength="4000" rows="3" placeholder="For example: The rear heel stays raised; no correction is needed."></textarea><div class="review-times"><div><label for="review-start">Evidence start (seconds, optional)</label><input id="review-start" type="number" min="0" step="0.01"><button type="button" data-mark="review-start">Use video time</button></div><div><label for="review-end">Evidence end (seconds, optional)</label><input id="review-end" type="number" min="0" step="0.01"><button type="button" data-mark="review-end">Use video time</button></div></div><label for="review-note">Why? (optional)</label><textarea id="review-note" maxlength="4000" rows="2" placeholder="What makes the claim clear or uncertain?"></textarea><div class="review-actions"><button type="submit" id="save-review">Save review in this browser</button><button type="button" id="export-case-reviews" ${drafts.entries.length ? '' : 'disabled'}>Export reviews for me</button></div><p id="review-status" role="status"></p><p class="scope">Export the JSON file and attach it in our chat. I can then version the reference labels and rerun the evaluation. Browser drafts do not sync between devices; keep an export before clearing browser data.</p></form>`;
+    )}</select><label for="review-feedback">What should the coach say?</label><textarea id="review-feedback" required maxlength="4000" rows="3" placeholder="Describe the visible movement and any useful correction."></textarea><div class="review-times"><div><label for="review-start">Evidence start (seconds, optional)</label><input id="review-start" type="number" min="0" step="0.01"><button type="button" data-mark="review-start">Use video time</button></div><div><label for="review-end">Evidence end (seconds, optional)</label><input id="review-end" type="number" min="0" step="0.01"><button type="button" data-mark="review-end">Use video time</button></div></div><label for="review-note">Why? (optional)</label><textarea id="review-note" maxlength="4000" rows="2" placeholder="What makes the claim clear or uncertain?"></textarea><div class="review-actions"><button type="submit" id="save-review">Save review in this browser</button><button type="button" id="export-case-reviews" ${drafts.entries.length ? '' : 'disabled'}>Export reviews for me</button></div><p id="review-status" role="status"></p><p class="scope">Export the JSON file and attach it in our chat. I can then version the reference labels and rerun the evaluation. Browser drafts do not sync between devices; keep an export before clearing browser data.</p></form>`;
   const select = document.querySelector('#review-check');
   select.value = preferred;
   const refresh = () => {
