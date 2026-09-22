@@ -150,7 +150,27 @@ function showOverview() {
     .join(
       '',
     )}</select></div><div><label for="search">Find a clip</label><input id="search" type="search" placeholder="Stance, heel, torso…" value="${escapeHTML(query)}"></div></div>
-  <div class="score"><strong>${score.percent === null ? '—' : score.percent + '%'}</strong><div><b>Instruction match score</b><p>${s.matched} matched / ${score.graded} graded clips · ${score.pending} pending. Partial results count as non-matches; pending clips are excluded. This measures the pipeline, not the person’s form.</p></div></div>
+  <div class="score"><strong>${s.total ? Math.round((100 * s.matched) / s.total) + '%' : '—'}</strong><div><b>Full matches across all clips</b><p>${s.matched} matched / ${s.total} clips · ${score.pending} pending. Partial and pending results are not counted as successes. This measures the pipeline, not the person’s form.</p></div></div>
+  ${
+    data.runs.filter(
+      (r) =>
+        taskOf(r).id === task.id && r.referenceSHA256 === run.referenceSHA256,
+    ).length > 1
+      ? `<details class="raw comparison"><summary>Compare runs · same clips and labels</summary><div class="comparison-scroll"><table><thead><tr><th>Run</th><th>Full matches</th><th>Partial</th><th>Missed / invalid</th><th>Pending</th></tr></thead><tbody>${data.runs
+          .filter(
+            (r) =>
+              taskOf(r).id === task.id &&
+              r.referenceSHA256 === run.referenceSHA256,
+          )
+          .map(
+            (r) =>
+              `<tr><td>${escapeHTML(r.label)}</td><td>${r.summary.matched} / ${r.summary.total}</td><td>${r.summary.partial}</td><td>${r.summary.mismatch + r.summary.invalid}</td><td>${r.summary.needs_review + r.summary.not_run}</td></tr>`,
+          )
+          .join(
+            '',
+          )}</tbody></table></div><p class="scope">The denominator here includes every clip, including pending reviews. No reference labels changed between these runs. This is development-set agreement, not held-out accuracy.</p></details>`
+      : ''
+  }
   ${guideHTML()}
   <div class="metrics"><div class="metric"><strong>${s.matched}</strong><span>Match selected instructions</span></div><div class="metric"><strong>${s.partial}</strong><span>Partial / overclaim</span></div><div class="metric"><strong>${s.mismatch + s.invalid}</strong><span>Missed / invalid</span></div><div class="metric"><strong>${s.needs_review}</strong><span>Need review</span></div><div class="metric"><strong>${s.not_run}</strong><span>Not run</span></div></div>
   <p class="summary-note">${escapeHTML(run.description)}<br>Run: ${escapeHTML(new Date(run.id).toLocaleString())}. ${escapeHTML(run.costNote ?? '')}</p>
@@ -264,9 +284,12 @@ async function showCase(id) {
   ${(c.grade.unreviewedConcerns ?? []).length ? `<article class="check"><h3>Additional concerns need review</h3><p>These claims have no adjudicated reference yet. They cannot silently receive a passing grade.</p>${c.grade.unreviewedConcerns.map((q) => `<p><strong>${escapeHTML(pretty(q.id))}:</strong> ${escapeHTML(q.observation)}</p><p>${escapeHTML(q.suggestion ?? '')}</p>`).join('')}</article>` : ''}
   ${(r.reviewNotes ?? []).map((n) => `<article class="check"><h3>${escapeHTML(n.title)}</h3><p class="label">Your comment</p><p>${escapeHTML(n.text)}</p><p class="reason">${escapeHTML(n.resolution)}</p></article>`).join('')}
   <section id="review-editor" class="check review-editor"></section>
-  <details class="raw"><summary>Full model response</summary><pre>${escapeHTML(JSON.stringify(c.response.proposal ?? c.response.checks, null, 2))}</pre></details>
+  ${c.response.evidenceGate?.decisions?.length ? `<article class="check"><h3>Local evidence check</h3>${c.response.evidenceGate.decisions.map((d) => `<p>${escapeHTML(d.reason)}</p>`).join('')}<p class="scope">The original model answer remains below; the pipeline withholds the unsupported reassurance.</p></article>` : ''}
+  ${c.response.evidenceGate?.explanationEdits?.length ? `<p class="scope">The coaching explanation omits unverified causes. The original model wording is retained below for inspection.</p>` : ''}
+  <details class="raw"><summary>Full pipeline response</summary><pre>${escapeHTML(JSON.stringify(c.response.proposal ?? c.response.checks, null, 2))}</pre></details>
+  ${c.response.providerProposal ? `<details class="raw"><summary>Original model response · before local checks</summary><pre>${escapeHTML(JSON.stringify(c.response.providerProposal, null, 2))}</pre></details>` : ''}
   <details class="raw"><summary>Reference, constraints & provenance</summary><pre>${escapeHTML(JSON.stringify(r, null, 2))}</pre></details>
-  <details class="raw"><summary>Tracking, usage & exact model input</summary><pre>${escapeHTML(JSON.stringify({ pose: c.pose, model: c.response.model, mode: c.response.mode, usage: c.response.usage, requestSHA256: c.response.requestSHA256, coachingRuntime: c.response.runtimeSHA256, poseRuntimeAtCoaching: c.response.poseRuntimeSHA256, prompt: c.response.prompt }, null, 2))}</pre></details>
+  <details class="raw"><summary>Tracking, usage & exact model input</summary><pre>${escapeHTML(JSON.stringify({ pose: c.pose, model: c.response.model, mode: c.response.mode, usage: c.response.usage, priorUsage: c.response.priorUsage, policyId: c.response.policyId, policySHA256: c.response.policySHA256, stage: c.response.stage, evidenceGate: c.response.evidenceGate, requestSHA256: c.response.requestSHA256, coachingRuntime: c.response.runtimeSHA256, poseRuntimeAtCoaching: c.response.poseRuntimeSHA256, prompt: c.response.prompt }, null, 2))}</pre></details>
   <p class="scope">${escapeHTML(c.grade.scope)} Timestamp validation checks structure; it does not verify the model’s visual interpretation.</p></section></div>`;
   document.querySelector('#back').onclick = () => {
     showOverview();

@@ -569,3 +569,26 @@ button:disabled {
     font-size: 32px;
   }
 }
+
+.comparison-scroll {
+  overflow-x: auto;
+}
+.comparison table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 14px;
+}
+.comparison th,
+.comparison td {
+  text-align: left;
+  padding: 10px;
+  border-bottom: 1px solid #dde3df;
+}
+.toolbar > * {
+  min-width: 0;
+}
+.toolbar select {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
