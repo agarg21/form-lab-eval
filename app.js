@@ -87,8 +87,8 @@ function showOverview() {
   cleanup();
   const run = getRun(),
     s = run.summary;
-  app.innerHTML = `<section class="intro"><p class="eyebrow">Lunges & split squats / ${run.results.length} clips</p><h1>Does the feedback match?</h1><p>Compare the coach’s response with our agreed instructions. Open a clip to see the evidence and why we graded it that way.</p></section>
-  <div class="toolbar"><div><label for="run">Evaluation run</label><select id="run">${data.runs.map((r, i) => `<option value="${i}" ${i === runIndex ? 'selected' : ''}>${escapeHTML(r.label)}</option>`).join('')}</select></div><div><label for="filter">Results</label><select id="filter"><option value="all">All clips</option><option value="attention">Needs attention</option>${Object.keys(
+  app.innerHTML = `<section class="intro"><p class="eyebrow">Lunges & stationary split squats / ${run.results.length} clips</p><h1>Lunge evaluation</h1><p>Does the coach’s feedback match our agreed lunge instructions? These data and results cover lunges and stationary split squats only. Open a clip to see the evidence and why we graded it that way.</p></section>
+  <div class="toolbar"><div><label for="run">Lunge evaluation run</label><select id="run">${data.runs.map((r, i) => `<option value="${i}" ${i === runIndex ? 'selected' : ''}>${escapeHTML(r.label)}</option>`).join('')}</select></div><div><label for="filter">Results</label><select id="filter"><option value="all">All clips</option><option value="attention">Needs attention</option>${Object.keys(
     s,
   )
     .filter((k) => labels[k])
